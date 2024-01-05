@@ -73,24 +73,11 @@ app.get('/getAllEmails/:userId', async (req, res) => {
 
   try {
       await connectToDatabase();
+      const request = new mssql.Request();
+      request.input('UserIdN', mssql.Int, userId);
+      const result = await request.execute('GetBothMails');
 
-      // Get sent emails
-      const sentEmailsRequest = new mssql.Request();
-      sentEmailsRequest.input('UserIdN', mssql.Int, userId);
-      const sentEmailsResult = await sentEmailsRequest.execute('GetSentMails');
-      
-      // Get received emails
-      const receivedEmailsRequest = new mssql.Request();
-      receivedEmailsRequest.input('UserIdN', mssql.Int, userId);
-      const receivedEmailsResult = await receivedEmailsRequest.execute('GetReceivedMails');
-
-      // Combine results
-      const combinedResults = {
-          sentEmails: sentEmailsResult.recordset,
-          receivedEmails: receivedEmailsResult.recordset,
-      };
-
-      res.json(combinedResults);
+      res.json(result.recordset);
   } catch (err) {
       console.error('Error fetching emails:', err);
       res.status(500).json({ error: 'Server error' });
