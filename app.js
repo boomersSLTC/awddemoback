@@ -22,6 +22,16 @@ const config = {
     },
 };
 
+const transporter = nodemailer.createTransport({
+  host: "mail.anzeewd.com",
+  port: 8889,
+  secure: false,
+  auth: {
+    user: "anzee.donotreply1@anzeewd.com",
+    pass: "a@$doNotRp13",
+  },
+});
+
 async function connectToDatabase() {
   try {
     await mssql.connect(config);
@@ -89,7 +99,7 @@ app.get('/getAllEmails/:userId', async (req, res) => {
 
 // Add this route to your Express.js backend
 app.post('/composeMail', async (req, res) => {
-  const { to_id, from_id, subject, body } = req.body;
+  const { to_id, to_email, from_id, from_email, subject, body } = req.body;
 
   try {
       await connectToDatabase();
@@ -101,6 +111,15 @@ app.post('/composeMail', async (req, res) => {
 
       // Call the stored procedure to compose and save the email
       await request.execute('ComposeAndSendMail');
+
+      await transporter.sendMail({
+        from: 'anzee.donotreply1@anzeewd.com', // sender address
+        to: to_email, // list of receivers
+        subject: subject, // Subject line
+        text: body, // plain text body
+        html: `<b>${body}</b>`, // html body
+      });
+
 
       res.status(200).json({ message: 'Email composed and sent successfully' });
   } catch (err) {
