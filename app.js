@@ -2,7 +2,6 @@ const express = require('express');
 const mssql = require('mssql');
 const cors = require('cors');
 const nodemailer = require("nodemailer");
-
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -103,36 +102,34 @@ app.post('/composeMail', async (req, res) => {
   const { to_id, to_email, from_id, from_email, subject, body } = req.body;
 
   try {
-    await connectToDatabase();
-    const request = new mssql.Request();
-    request.input('FromUserIdN', mssql.NVarChar(255), from_id);
-    request.input('ToUserIdN', mssql.NVarChar(255), to_id);
-    request.input('Subject', mssql.NVarChar(255), subject);
-    request.input('Body', mssql.NVarChar(mssql.MAX), body);
+      await connectToDatabase();
+      const request = new mssql.Request();
+      request.input('FromUserIdN', mssql.NVarChar(255), from_id);
+      request.input('ToUserIdN', mssql.NVarChar(255), to_id);
+      request.input('Subject', mssql.NVarChar(255), subject);
+      request.input('Body', mssql.NVarChar(mssql.MAX), body);
 
-    // Call the stored procedure to compose and save the email
-    await request.execute('ComposeAndSendMail');
+      // Call the stored procedure to compose and save the email
+      await request.execute('ComposeAndSendMail');
+      if (to_email) {
+        // Send the email only if to_email is provided
+        await transporter.sendMail({
+          from: 'anzee.donotreply1@anzeewd.com',
+          to: to_email,
+          subject: subject,
+          text: body,
+          html: `<b>${body}</b>`,
+        });
+      }
 
-    if (req.body.isEnabledEmail) {
-      // Send the email if isEnabledEmail is true
-      await transporter.sendMail({
-        from: 'anzee.donotreply1@anzeewd.com',
-        to: to_email,
-        subject: subject,
-        text: body,
-        html: `<b>${body}</b>`,
-      });
-    }
-
-    res.status(200).json({ message: 'Email composed and sent successfully' });
+      res.status(200).json({ message: 'Email composed and sent successfully' });
   } catch (err) {
-    console.error('Error composing email:', err);
-    res.status(500).json({ error: 'Server error' });
+      console.error('Error composing email:', err);
+      res.status(500).json({ error: 'Server error' });
   } finally {
-    await mssql.close();
+      await mssql.close();
   }
 });
-
 
 app.get('/getUsers', async (req,res) => {
 
