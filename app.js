@@ -1,6 +1,7 @@
 const express = require('express');
 const mssql = require('mssql');
 const cors = require('cors');
+const nodemailer = require("nodemailer");
 
 const app = express();
 const port = process.env.PORT || 3000;
