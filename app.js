@@ -2,6 +2,9 @@ const express = require('express');
 const mssql = require('mssql');
 const cors = require('cors');
 const nodemailer = require("nodemailer");
+const accountSid = 'ACd298a0644f5725712dbf8b3d2cdffae8';
+const authToken = 'bebfc61de3a119e18a545df06d45b938';
+const client = require('twilio')(accountSid, authToken);
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -99,7 +102,7 @@ app.get('/getAllEmails/:userId', async (req, res) => {
 
 // Add this route to your Express.js backend
 app.post('/composeMail', async (req, res) => {
-  const { to_id, to_email, from_id, from_email, subject, body } = req.body;
+  const { to_id, to_email, from_id, from_email, subject, body, to_cellphone } = req.body;
 
   try {
       await connectToDatabase();
@@ -111,7 +114,24 @@ app.post('/composeMail', async (req, res) => {
 
       // Call the stored procedure to compose and save the email
       await request.execute('ComposeAndSendMail');
-      if (to_email) {
+      
+      if (to_cellphone && to_email) {
+        await transporter.sendMail({
+          from: 'anzee.donotreply1@anzeewd.com',
+          to: to_email,
+          subject: subject,
+          text: body,
+          html: `<b>${body}</b>`,
+        })
+
+        client.messages
+        .create({
+          body: 'Mail Received please check Anzee',
+          from: '+1 925 261 7061',
+          to: to_cellphone
+        })
+        .then(message => console.log(message.sid));
+      } else if (to_email) {
         // Send the email only if to_email is provided
         await transporter.sendMail({
           from: 'anzee.donotreply1@anzeewd.com',
@@ -120,6 +140,14 @@ app.post('/composeMail', async (req, res) => {
           text: body,
           html: `<b>${body}</b>`,
         });
+      } else if (to_cellphone) {
+        client.messages
+          .create({
+            body: 'Mail Received please check Anzee',
+            from: '+1 925 261 7061',
+            to: to_cellphone
+          })
+          .then(message => console.log(message.sid));
       }
 
       res.status(200).json({ message: 'Email composed and sent successfully' });
@@ -189,3 +217,5 @@ app.get('/getMailBody/:MailIdN', async (req, res) => {
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
+
