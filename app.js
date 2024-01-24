@@ -234,13 +234,14 @@ app.post('/login', async (req, res) => {
 });
 
 // Stored procedure to get body of a mail
-app.get('/getMailBody/:MailIdN', async (req, res) => {
-  const { MailIdN } = req.params;
+app.get('/getMailBody/:MailIdN/:UserID', async (req, res) => {
+  const { MailIdN, UserID } = req.params;
 
   try {
     await connectToDatabase();
     const request = new mssql.Request();
     request.input('MailIdN', mssql.Int, MailIdN);
+    request.input('UserID', mssql.Int, UserID);
     const result = await request.execute('GetMailBody');
     res.json(result.recordset);
   } catch (err) {
