@@ -1,9 +1,11 @@
 const express = require('express');
 const mssql = require('mssql');
 const cors = require('cors');
+const jwt = require('jsonwebtoken')
 const nodemailer = require("nodemailer");
-const accountSid = 'ACd298a0644f5725712dbf8b3d2cdffae8';
-const authToken = 'bebfc61de3a119e18a545df06d45b938';
+require('dotenv').config();
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
 const client = require('twilio')(accountSid, authToken);
 const app = express();
 const port = process.env.PORT || 3000;
@@ -14,10 +16,10 @@ app.use(express.json());
 // Database configuration
 
 const config = {
-    server: 'plesk4500.is.cc',
-    database: 'anzeewdn_Mobile',
-    user: 'anzeewdn_MobileAdmin',
-    password: 'R^0c36l5f',
+  server: process.env.DB_SERVER,
+  database: process.env.DB_DATABASE,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
     options: {
         trustServerCertificate: true,
         trustedconnection:  true,
@@ -26,12 +28,12 @@ const config = {
 };
 
 const transporter = nodemailer.createTransport({
-  host: "mail.anzeewd.com",
-  port: 8889,
-  secure: false,
+  host: process.env.EMAIL_HOST,
+  port: process.env.EMAIL_PORT,
+  secure: process.env.EMAIL_SECURE === 'true',
   auth: {
-    user: "anzee.donotreply1@anzeewd.com",
-    pass: "a@$doNotRp13",
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
   },
 });
 
@@ -190,6 +192,41 @@ app.post('/updateEmailVisibility/:emailId', async (req, res) => {
     res.status(200).json({ message: 'Email visibility updated successfully' });
   } catch (err) {
     console.error('Error updating email visibility:', err);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    await mssql.close();
+  }
+});
+
+app.post('/login', async (req, res) => {
+  const { usernameOrEmail, password } = req.body;
+  console.log(usernameOrEmail)
+  try {
+    await connectToDatabase();
+    const request = new mssql.Request();
+    request.input('UsernameOrEmail', mssql.NVarChar(255), usernameOrEmail);
+    request.input('Password', mssql.NVarChar(255), password);
+
+    const result =  await request.execute('ValidateUserCredentials');
+
+    if (result.returnValue === 0) {
+      return res.status(401).json({ error: 'User not found' });
+    } else if (result.returnValue === 1) {
+      // Assuming the recordset contains the user information
+      const userRecord = result.recordset;
+
+      // Generate a token upon successful login
+      const token = jwt.sign({ usernameOrEmail }, process.env.JWT_SECRET, {
+        expiresIn: '1h', // Set the expiration time as needed
+      });
+
+      // Return the user record and token in the response
+      return res.status(200).json({ user: userRecord, token });
+    } else {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+  } catch (err) {
+    console.error('Error during login:', err);
     res.status(500).json({ error: 'Server error' });
   } finally {
     await mssql.close();
