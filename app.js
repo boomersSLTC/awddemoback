@@ -109,8 +109,8 @@ app.post('/composeMail', async (req, res) => {
   try {
       await connectToDatabase();
       const request = new mssql.Request();
-      request.input('FromUserIdN', mssql.NVarChar(255), from_id);
-      request.input('ToUserIdN', mssql.NVarChar(255), to_id);
+      request.input('FromUserIdN', mssql.Int, from_id);
+      request.input('ToUserIdN', mssql.Int, to_id);
       request.input('Subject', mssql.NVarChar(255), subject);
       request.input('Body', mssql.NVarChar(mssql.MAX), body);
 
