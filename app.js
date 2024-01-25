@@ -105,7 +105,7 @@ app.get('/getAllEmails/:userId', async (req, res) => {
 // Add this route to your Express.js backend
 app.post('/composeMail', async (req, res) => {
   const { to_id, to_email, from_id, from_email, subject, body, to_cellphone } = req.body;
-
+  console.log(from_id)
   try {
       await connectToDatabase();
       const request = new mssql.Request();
