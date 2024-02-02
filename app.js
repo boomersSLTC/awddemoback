@@ -9,6 +9,7 @@ const authToken = process.env.TWILIO_AUTH_TOKEN;
 const client = require('twilio')(accountSid, authToken);
 const app = express();
 const port = process.env.PORT || 3000;
+const revokedTokens = new Set();
 
 app.use(cors());
 app.use(express.json());
@@ -46,8 +47,25 @@ async function connectToDatabase() {
   }
 }
 
+const jwtMiddleware = (req, res, next) => {
+  const token = req.header('x-auth-token'); // Assuming you send the token in the 'x-auth-token' header
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access denied. No token provided.' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // Attach the decoded user information to the request object
+    next();
+  } catch (ex) {
+    res.status(400).json({ error: 'Invalid token.' });
+  }
+};
+
+
 // Stored procedure to get sent emails
-app.get('/getSentEmails/:userId', async (req, res) => {
+app.get('/getSentEmails/:userId', jwtMiddleware, async (req, res) => {
   const { userId } = req.params;
 
   try {
@@ -64,9 +82,8 @@ app.get('/getSentEmails/:userId', async (req, res) => {
   }
 });
 
-
 // Stored procedure to get received emails
-app.get('/getReceivedEmails/:userId', async (req, res) => {
+app.get('/getReceivedEmails/:userId', jwtMiddleware, async (req, res) => {
   const { userId } = req.params;
 
   try {
@@ -83,7 +100,7 @@ app.get('/getReceivedEmails/:userId', async (req, res) => {
   }
 });
 
-app.get('/getAllEmails/:userId', async (req, res) => {
+app.get('/getAllEmails/:userId',jwtMiddleware, async (req, res) => {
   const { userId } = req.params;
 
   try {
@@ -101,9 +118,8 @@ app.get('/getAllEmails/:userId', async (req, res) => {
   }
 });
 
-
 // Add this route to your Express.js backend
-app.post('/composeMail', async (req, res) => {
+app.post('/composeMail',jwtMiddleware, async (req, res) => {
   const { to_id, to_email, from_id, from_email, subject, body, to_cellphone } = req.body;
   console.log(from_id)
   try {
@@ -161,7 +177,7 @@ app.post('/composeMail', async (req, res) => {
   }
 });
 
-app.get('/getUsers', async (req,res) => {
+app.get('/getUsers',jwtMiddleware, async (req,res) => {
 
   try {
       await connectToDatabase();
@@ -176,8 +192,7 @@ app.get('/getUsers', async (req,res) => {
   }
 });
 
-
-app.post('/updateEmailVisibility/:emailId', async (req, res) => {
+app.post('/updateEmailVisibility/:emailId',jwtMiddleware, async (req, res) => {
   const { emailId } = req.params;
   const deleteType = req.body.B;
   try {
@@ -234,7 +249,7 @@ app.post('/login', async (req, res) => {
 });
 
 // Stored procedure to get body of a mail
-app.get('/getMailBody/:MailIdN/:UserID', async (req, res) => {
+app.get('/getMailBody/:MailIdN/:UserID',jwtMiddleware, async (req, res) => {
   const { MailIdN, UserID } = req.params;
 
   try {
@@ -251,6 +266,9 @@ app.get('/getMailBody/:MailIdN/:UserID', async (req, res) => {
     await mssql.close();
   }
 });
+
+
+app.use(jwtMiddleware); // Apply the middleware to all routes
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
