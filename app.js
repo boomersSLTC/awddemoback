@@ -192,6 +192,20 @@ app.get('/getUsers',jwtMiddleware, async (req,res) => {
   }
 });
 
+app.get('/getTasks', async (req,res) => {
+  try {
+      await connectToDatabase();
+      const request = new mssql.Request();
+      const result = await request.execute('getTasks');
+      res.json(result.recordset);
+  } catch (err) {
+      console.error('Error composing email:', err);
+      res.status(500).json({ error: 'Server error' });
+  } finally {
+      await mssql.close();
+  }
+});
+
 app.post('/updateEmailVisibility/:emailId',jwtMiddleware, async (req, res) => {
   const { emailId } = req.params;
   const deleteType = req.body.B;
