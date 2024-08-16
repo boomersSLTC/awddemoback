@@ -223,81 +223,114 @@ app.post('/getAllEmails/:userId', jwtMiddleware, async (req, res) => {
   }
 });
 
+// app.post('/composeMail', jwtMiddleware, async (req, res) => {
+//   const { to_id, to_email, from_id, subject, body, to_cellphone, at, wd } = req.body;
+//   console.log(req.body)
+//   try {
+//     await connectToDatabase();
+//     const request1 = new mssql.Request();
+//     const result = await request1.execute('GetNextMobileCode');
+
+//     const request = new mssql.Request();
+//     request.input('TO', mssql.Int, to_id);
+//     request.input('S', mssql.NVarChar(mssql.MAX), escape(subject));
+//     request.input('At', mssql.NVarChar(10), '0');
+//     request.input('iCC', mssql.Int, 0);
+//     request.input('CC', mssql.NVarChar(mssql.MAX), '');
+//     request.input('FR', mssql.Int, from_id);
+//     request.input('B', mssql.NVarChar(mssql.MAX), escape(body));
+//     request.input('ThId', mssql.Int, 0);
+//     request.input('sRefID', mssql.NVarChar(9), result.recordset[0].Code_Mobile);
+//     // Adjusting the 'EM' and 'SMS' inputs based on the presence of to_email and to_cellphone
+//     if (to_email && to_cellphone) {
+//       request.input('EM', mssql.Int, 1);
+//       request.input('SMS', mssql.Int, 1);
+//     } else if (to_email) {
+//       request.input('EM', mssql.Int, 1);
+//       request.input('SMS', mssql.Int, 0);
+//     } else if (to_cellphone) {
+//       request.input('EM', mssql.Int, 0);
+//       request.input('SMS', mssql.Int, 1);
+//     } else {
+//       request.input('EM', mssql.Int, 0);
+//       request.input('SMS', mssql.Int, 0);
+//     }
+//     request.input('A', mssql.NVarChar(mssql.MAX), '');
+//     request.input('RqstEmlWhnRply', mssql.Int, 0);
+//     request.input('RqstSMSWhnRply', mssql.Int, 0);
+//     request.input('WD', mssql.Int, wd);
+//     request.input('ToOriginal', mssql.Int, to_id);
+//     request.input('GroupIDs', mssql.NVarChar(mssql.MAX), '');
+//     // Call the stored procedure to compose and save the email 
+
+//     const mailResult = await request.execute('InsertMail');
+
+//     if (to_cellphone && to_email) {
+//       await transporter.sendMail({
+//         from: 'anzee.donotreply1@anzeewd.com',
+//         to: to_email,
+//         subject: subject,
+//         text: body,
+//         html: `<b>${body}</b>`,
+//       })
+
+//       client.messages
+//         .create({
+//           body: 'Mail Received please check Anzee',
+//           from: '+1 925 261 7061',
+//           to: to_cellphone
+//         })
+//         .then(message => console.log(message.sid));
+//     } else if (to_email) {
+//       // Send the email only if to_email is provided
+//       await transporter.sendMail({
+//         from: 'anzee.donotreply1@anzeewd.com',
+//         to: to_email,
+//         subject: subject,
+//         text: body,
+//         html: `<b>${body}</b>`,
+//       });
+//     } else if (to_cellphone) {
+//       client.messages
+//         .create({
+//           body: 'Mail Received please check Anzee',
+//           from: '+1 925 261 7061',
+//           to: to_cellphone
+//         })
+//         .then(message => console.log(message.sid));
+//     }
+
+//     res.status(200).json({ message: 'Email composed and sent successfully' });
+//   } catch (err) {
+//     console.error('Error composing email:', err);
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
+
 app.post('/composeMail', jwtMiddleware, async (req, res) => {
-  const { to_id, to_email, from_id, subject, body, to_cellphone, at, wd } = req.body;
-  console.log(req.body)
+  const { cc_list, to_id, to_email, from_id, subject, body, to_cellphone, at, wd } = req.body;
+  console.log(req.body);
+
   try {
     await connectToDatabase();
     const request1 = new mssql.Request();
     const result = await request1.execute('GetNextMobileCode');
 
-    const request = new mssql.Request();
-    request.input('TO', mssql.Int, to_id);
-    request.input('S', mssql.NVarChar(mssql.MAX), escape(subject));
-    request.input('At', mssql.NVarChar(10), '0');
-    request.input('iCC', mssql.Int, 0);
-    request.input('CC', mssql.NVarChar(mssql.MAX), '');
-    request.input('FR', mssql.Int, from_id);
-    request.input('B', mssql.NVarChar(mssql.MAX), escape(body));
-    request.input('ThId', mssql.Int, 0);
-    request.input('sRefID', mssql.NVarChar(9), result.recordset[0].Code_Mobile);
-    // Adjusting the 'EM' and 'SMS' inputs based on the presence of to_email and to_cellphone
-    if (to_email && to_cellphone) {
-      request.input('EM', mssql.Int, 1);
-      request.input('SMS', mssql.Int, 1);
-    } else if (to_email) {
-      request.input('EM', mssql.Int, 1);
-      request.input('SMS', mssql.Int, 0);
-    } else if (to_cellphone) {
-      request.input('EM', mssql.Int, 0);
-      request.input('SMS', mssql.Int, 1);
+    // Convert CC list to a comma-separated string
+    const ccListString = cc_list ? cc_list.join(',') : '';
+
+
+    if (cc_list && cc_list.length > 0) {
+      // Send email to the primary recipient first
+      await sendEmail(to_id, to_email, to_cellphone, from_id, subject, body, wd, result.recordset[0].Code_Mobile, ccListString, to_id);
+
+      // Handle CC list
+      for (const ccId of cc_list) {
+        await sendEmail(ccId, to_email, to_cellphone, from_id, subject, body, wd, result.recordset[0].Code_Mobile, ccListString, to_id);
+      }
     } else {
-      request.input('EM', mssql.Int, 0);
-      request.input('SMS', mssql.Int, 0);
-    }
-    request.input('A', mssql.NVarChar(mssql.MAX), '');
-    request.input('RqstEmlWhnRply', mssql.Int, 0);
-    request.input('RqstSMSWhnRply', mssql.Int, 0);
-    request.input('WD', mssql.Int, wd);
-    request.input('ToOriginal', mssql.Int, to_id);
-    request.input('GroupIDs', mssql.NVarChar(mssql.MAX), '');
-    // Call the stored procedure to compose and save the email 
-
-    await request.execute('InsertMail');
-
-    if (to_cellphone && to_email) {
-      await transporter.sendMail({
-        from: 'anzee.donotreply1@anzeewd.com',
-        to: to_email,
-        subject: subject,
-        text: body,
-        html: `<b>${body}</b>`,
-      })
-
-      client.messages
-        .create({
-          body: 'Mail Received please check Anzee',
-          from: '+1 925 261 7061',
-          to: to_cellphone
-        })
-        .then(message => console.log(message.sid));
-    } else if (to_email) {
-      // Send the email only if to_email is provided
-      await transporter.sendMail({
-        from: 'anzee.donotreply1@anzeewd.com',
-        to: to_email,
-        subject: subject,
-        text: body,
-        html: `<b>${body}</b>`,
-      });
-    } else if (to_cellphone) {
-      client.messages
-        .create({
-          body: 'Mail Received please check Anzee',
-          from: '+1 925 261 7061',
-          to: to_cellphone
-        })
-        .then(message => console.log(message.sid));
+      // normal email
+      await sendEmail(to_id, to_email, to_cellphone, from_id, subject, body, wd, result.recordset[0].Code_Mobile, ccListString, to_id);
     }
 
     res.status(200).json({ message: 'Email composed and sent successfully' });
@@ -306,6 +339,81 @@ app.post('/composeMail', jwtMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+// Function to handle sending email/SMS
+const sendEmail = async (recipientId, email, cellphone, fromId, subject, body, wd, refId, ccListString, to_id) => {
+  const request = new mssql.Request();
+  request.input('TO', mssql.Int, recipientId || 0);
+  request.input('S', mssql.NVarChar(mssql.MAX), escape(subject));
+  request.input('At', mssql.NVarChar(10), '0');
+  request.input('iCC', mssql.Int, 0);
+  request.input('CC', mssql.NVarChar(mssql.MAX), ccListString); // Use the CC list string here
+  request.input('FR', mssql.Int, fromId); // Use the from_id here
+  request.input('B', mssql.NVarChar(mssql.MAX), escape(body));
+  request.input('ThId', mssql.Int, 0);
+  request.input('sRefID', mssql.NVarChar(9), refId);
+  
+  // Adjusting the 'EM' and 'SMS' inputs based on the presence of to_email and to_cellphone
+  if (email && cellphone) {
+    request.input('EM', mssql.Int, 1);
+    request.input('SMS', mssql.Int, 1);
+  } else if (email) {
+    request.input('EM', mssql.Int, 1);
+    request.input('SMS', mssql.Int, 0);
+  } else if (cellphone) {
+    request.input('EM', mssql.Int, 0);
+    request.input('SMS', mssql.Int, 1);
+  } else {
+    request.input('EM', mssql.Int, 0);
+    request.input('SMS', mssql.Int, 0);
+  }
+
+  request.input('A', mssql.NVarChar(mssql.MAX), '');
+  request.input('RqstEmlWhnRply', mssql.Int, 0);
+  request.input('RqstSMSWhnRply', mssql.Int, 0);
+  request.input('WD', mssql.Int, wd);
+  request.input('ToOriginal', mssql.Int, to_id);
+  request.input('GroupIDs', mssql.NVarChar(mssql.MAX), '');
+
+  // Call the stored procedure to compose and save the email 
+  await request.execute('InsertMail');
+
+  if (cellphone && email) {
+    await transporter.sendMail({
+      from: 'anzee.donotreply1@anzeewd.com',
+      to: email,
+      subject: subject,
+      text: body,
+      html: `<b>${body}</b>`,
+    })
+
+    client.messages
+      .create({
+        body: 'Mail Received please check Anzee',
+        from: '+1 925 261 7061',
+        to: cellphone
+      })
+      .then(message => console.log(message.sid));
+  } else if (email) {
+    // Send the email only if to_email is provided
+    await transporter.sendMail({
+      from: 'anzee.donotreply1@anzeewd.com',
+      to: email,
+      subject: subject,
+      text: body,
+      html: `<b>${body}</b>`,
+    });
+  } else if (cellphone) {
+    client.messages
+      .create({
+        body: 'Mail Received please check Anzee',
+        from: '+1 925 261 7061',
+        to: cellphone
+      })
+      .then(message => console.log(message.sid));
+  }
+};
+
 
 app.post('/updateEmailVisibility/:mailId/:userId', jwtMiddleware, async (req, res) => {
   const { mailId, userId } = req.params;
