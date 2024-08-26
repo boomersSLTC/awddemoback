@@ -165,7 +165,7 @@ app.post('/getSentEmails/:userId', jwtMiddleware, async (req, res) => {
     request.input('Cnt', mssql.VarChar(6), cnt);
     request.input('BlckSize', mssql.Int, blocksize);
 
-    const result = await request.execute('GetMailSentbox2023');
+    const result = await request.execute('GetMailSentbox2023_Mobile');
     res.json(result.recordset);
   } catch (err) {
     console.error('Error fetching received emails:', err);
@@ -190,7 +190,7 @@ app.post('/getReceivedEmails/:userId', jwtMiddleware, async (req, res) => {
     request.input('Cnt', mssql.VarChar(5), cnt);
     request.input('BlckSize', mssql.Int, blocksize);
 
-    const result = await request.execute('GetMailInbox2023');
+    const result = await request.execute('GetMailInbox2023_Mobile');
 
     res.json(result.recordset);
   } catch (err) {
@@ -214,7 +214,7 @@ app.post('/getAllEmails/:userId', jwtMiddleware, async (req, res) => {
     request.input('Cnt', mssql.VarChar(6), cnt);
     request.input('BlckSize', mssql.Int, blocksize);
 
-    const result = await request.execute('GetMailInboxAndSent2023');
+    const result = await request.execute('GetMailInboxAndSent2023_Mobile');
 
     res.json(result.recordset);
   } catch (err) {
@@ -315,6 +315,7 @@ app.post('/composeMail', jwtMiddleware, async (req, res) => {
     await connectToDatabase();
     const request1 = new mssql.Request();
     const result = await request1.execute('GetNextMobileCode');
+    console.log(result)
 
     // Convert CC list to a comma-separated string
     const ccListString = cc_list ? cc_list.join(',') : '';
@@ -329,7 +330,6 @@ app.post('/composeMail', jwtMiddleware, async (req, res) => {
         await sendEmail(ccId, to_email, to_cellphone, from_id, subject, body, wd, result.recordset[0].Code_Mobile, ccListString, to_id);
       }
     } else {
-      // normal email
       await sendEmail(to_id, to_email, to_cellphone, from_id, subject, body, wd, result.recordset[0].Code_Mobile, ccListString, to_id);
     }
 
@@ -340,8 +340,78 @@ app.post('/composeMail', jwtMiddleware, async (req, res) => {
   }
 });
 
+function htmlToTextConverted(htmlContent) {
+  var textContent = htmlContent
+    .replace(/<p[^>]*>/g, ' ')
+    .replace(/<\/p>/g, ' ')
+    .replace(/<div[^>]*>/g, ' ')
+    .replace(/<\/div>/g, ' ')
+    .replace(/<br[^>]*>/g, ' ')
+    .replace(/<h[1-6][^>]*>/g, ' ')
+    .replace(/<\/h[1-6]>/g, ' ')
+    .replace(/<ul[^>]*>/g, ' ')
+    .replace(/<\/ul>/g, ' ')
+    .replace(/<ol[^>]*>/g, ' ')
+    .replace(/<\/ol>/g, ' ')
+    .replace(/<li[^>]*>/g, ' ')
+    .replace(/<\/li>/g, ' ')
+    .replace(/<hr[^>]*>/g, ' ')
+    .replace(/<blockquote[^>]*>/g, ' ')
+    .replace(/<\/blockquote>/g, ' ')
+    .replace(/<pre[^>]*>/g, ' ')
+    .replace(/<\/pre>/g, ' ')
+    .replace(/<address[^>]*>/g, ' ')
+    .replace(/<\/address>/g, ' ')
+    .replace(/<fieldset[^>]*>/g, ' ')
+    .replace(/<\/fieldset>/g, ' ')
+    .replace(/<article[^>]*>/g, ' ')
+    .replace(/<\/article>/g, ' ')
+    .replace(/<aside[^>]*>/g, ' ')
+    .replace(/<\/aside>/g, ' ')
+    .replace(/<details[^>]*>/g, ' ')
+    .replace(/<\/details>/g, ' ')
+    .replace(/<figcaption[^>]*>/g, ' ')
+    .replace(/<\/figcaption>/g, ' ')
+    .replace(/<figure[^>]*>/g, ' ')
+    .replace(/<\/figure>/g, ' ')
+    .replace(/<footer[^>]*>/g, ' ')
+    .replace(/<\/footer>/g, ' ')
+    .replace(/<header[^>]*>/g, ' ')
+    .replace(/<\/header>/g, ' ')
+    .replace(/<hgroup[^>]*>/g, ' ')
+    .replace(/<\/hgroup>/g, ' ')
+    .replace(/<main[^>]*>/g, ' ')
+    .replace(/<\/main>/g, ' ')
+    .replace(/<nav[^>]*>/g, ' ')
+    .replace(/<\/nav>/g, ' ')
+    .replace(/<section[^>]*>/g, ' ')
+    .replace(/<\/section>/g, ' ')
+    .replace(/<table[^>]*>/g, ' ')
+    .replace(/<\/table>/g, ' ')
+    .replace(/<tr[^>]*>/g, ' ')
+    .replace(/<\/tr>/g, ' ')
+    .replace(/<td[^>]*>/g, ' ')
+    .replace(/<\/td>/g, ' ')
+    .replace(/<th[^>]*>/g, ' ')
+    .replace(/<\/th>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ');
+  // Remove any remaining HTML tags
+  textContent = textContent.replace(/<[^>]+>/g, '');
+  // Trim and normalize whitespace
+  textContent = textContent.trim().replace(/\s\s+/g, ' ');
+  // Display the converted text in #textContent
+  return textContent;
+}
+
+
+
 // Function to handle sending email/SMS
 const sendEmail = async (recipientId, email, cellphone, fromId, subject, body, wd, refId, ccListString, to_id) => {
+    // Convert HTML to text
+  const plainText = htmlToTextConverted(body);
+  const trimmedText = plainText.slice(0, 200);
   const request = new mssql.Request();
   request.input('TO', mssql.Int, recipientId || 0);
   request.input('S', mssql.NVarChar(mssql.MAX), escape(subject));
@@ -350,9 +420,10 @@ const sendEmail = async (recipientId, email, cellphone, fromId, subject, body, w
   request.input('CC', mssql.NVarChar(mssql.MAX), ccListString); // Use the CC list string here
   request.input('FR', mssql.Int, fromId); // Use the from_id here
   request.input('B', mssql.NVarChar(mssql.MAX), escape(body));
+  request.input('BSM', mssql.NVarChar(250), trimmedText);
   request.input('ThId', mssql.Int, 0);
   request.input('sRefID', mssql.NVarChar(9), refId);
-  
+
   // Adjusting the 'EM' and 'SMS' inputs based on the presence of to_email and to_cellphone
   if (email && cellphone) {
     request.input('EM', mssql.Int, 1);
@@ -454,7 +525,7 @@ app.get('/getMailBody/:MailIdN/:UserID/:FR', jwtMiddleware, async (req, res) => 
 
 //TASK
 
-app.post('/getTasksID/:userId',jwtMiddleware, async (req, res) => {
+app.post('/getTasksID/:userId', jwtMiddleware, async (req, res) => {
   const { userId } = req.params;
   const { wd, cnt, blocksize } = req.body;
   try {
@@ -478,7 +549,7 @@ app.post('/getTasksID/:userId',jwtMiddleware, async (req, res) => {
   }
 });
 
-app.post('/getTaskBody/:userId',jwtMiddleware, async (req, res) => {
+app.post('/getTaskBody/:userId', jwtMiddleware, async (req, res) => {
   const { userId } = req.params;
   const { ID, wd } = req.body;
   try {
@@ -496,7 +567,7 @@ app.post('/getTaskBody/:userId',jwtMiddleware, async (req, res) => {
   }
 });
 
-app.post('/taskTpView/:userId',jwtMiddleware, async (req, res) => {
+app.post('/taskTpView/:userId', jwtMiddleware, async (req, res) => {
   const { userId } = req.params;
   const { ID, wd } = req.body;
   try {
@@ -518,7 +589,7 @@ app.post('/taskTpView/:userId',jwtMiddleware, async (req, res) => {
 
 //SUBTASK
 
-app.post('/getSubTasksID/:userId',jwtMiddleware, async (req, res) => {
+app.post('/getSubTasksID/:userId', jwtMiddleware, async (req, res) => {
   const { userId } = req.params;
   const { wd, cnt, blocksize, TI } = req.body;
 
@@ -541,7 +612,7 @@ app.post('/getSubTasksID/:userId',jwtMiddleware, async (req, res) => {
   }
 });
 
-app.post('/subTaskTpView/:userId',jwtMiddleware, async (req, res) => {
+app.post('/subTaskTpView/:userId', jwtMiddleware, async (req, res) => {
   const { userId } = req.params;
   const { ID } = req.body;
   try {
@@ -559,7 +630,7 @@ app.post('/subTaskTpView/:userId',jwtMiddleware, async (req, res) => {
   }
 });
 
-app.post('/getSubTaskBody/:userId',jwtMiddleware, async (req, res) => {
+app.post('/getSubTaskBody/:userId', jwtMiddleware, async (req, res) => {
   const { userId } = req.params;
   const { ID, wd, SI, TI } = req.body;
   try {
@@ -582,7 +653,7 @@ app.post('/getSubTaskBody/:userId',jwtMiddleware, async (req, res) => {
 
 //SEARCH
 
-app.post('/searchDetails/:UserID',jwtMiddleware, async (req, res) => {
+app.post('/searchDetails/:UserID', jwtMiddleware, async (req, res) => {
   const { UserID } = req.params;
   const { Keywords } = req.body;
   try {
@@ -598,7 +669,7 @@ app.post('/searchDetails/:UserID',jwtMiddleware, async (req, res) => {
   }
 });
 
-app.post('/searchSubDetails/:UserID',jwtMiddleware, async (req, res) => {
+app.post('/searchSubDetails/:UserID', jwtMiddleware, async (req, res) => {
   const { UserID } = req.params;
   const { Keywords } = req.body;
   try {
@@ -614,7 +685,7 @@ app.post('/searchSubDetails/:UserID',jwtMiddleware, async (req, res) => {
   }
 });
 
-app.post('/searchReceivedEmails/:userId',jwtMiddleware, async (req, res) => {
+app.post('/searchReceivedEmails/:userId', jwtMiddleware, async (req, res) => {
   const { userId } = req.params;
   const { Keywords } = req.body;
   try {
@@ -689,7 +760,7 @@ io.on('connection', (socket) => {
         // Emit the online users data back to the client
         console.log(result.recordset)
         io.emit('onlineUsersData', result.recordset);
-        
+
       } catch (err) {
         console.error('Error during online:', err);
       }
