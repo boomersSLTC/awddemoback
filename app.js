@@ -397,11 +397,13 @@ function htmlToTextConverted(htmlContent) {
     .replace(/&nbsp;/g, ' ')
     .replace(/<[^>]+>/g, '')
     .replace(/&nbsp;/g, ' ');
+
   // Remove any remaining HTML tags
   textContent = textContent.replace(/<[^>]+>/g, '');
+
   // Trim and normalize whitespace
   textContent = textContent.trim().replace(/\s\s+/g, ' ');
-  // Display the converted text in #textContent
+
   return textContent;
 }
 
