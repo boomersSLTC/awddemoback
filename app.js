@@ -735,6 +735,31 @@ app.post('/searchBothEmails/:userId', jwtMiddleware, async (req, res) => {
   }
 });
 
+//Time
+
+app.post('/getTimeReport/:userId', jwtMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  const { wd, sd, ed } = req.body;
+  console.log(wd)
+  try {
+    await connectToDatabase();
+    const request = new mssql.Request();
+
+    request.input('S', mssql.VarChar(20), sd);
+    request.input('E', mssql.VarChar(20), ed);
+    request.input('U', mssql.Int, userId);
+    request.input('W', mssql.Int, wd);
+
+    const result = await request.execute('GetTimeReporting');
+    console.log(result)
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching sub task:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
 // Websocket connection
 io.on('connection', (socket) => {
 
