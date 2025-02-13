@@ -115,7 +115,7 @@ app.post('/login', async (req, res) => {
       const users = usersResult.recordset;
       // Generate a token upon successful login
       const token = jwt.sign({ usernameOrEmail }, process.env.JWT_SECRET, {
-        expiresIn: '1h', // Set the expiration time as needed
+        expiresIn: '24h', // Set the expiration time as needed
       });
 
       // Return the user record and token in the response
@@ -146,6 +146,24 @@ app.post('/logout', async (req, res) => {
   }
 });
 
+app.post('/getUsers', async (req, res) => {
+  const { userId, wd, EN } = req.body;
+
+  try {
+    await connectToDatabase();
+    const request = new mssql.Request();
+    request.input('ws', mssql.Int, wd);
+    request.input('sEN', mssql.NVarChar(255), EN);
+    request.input('UI', mssql.Int, userId);
+
+    const result = await request.execute('GetUsers');
+    res.json(result.recordset);
+
+  } catch (err) {
+    console.error('Error during logout:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 //EMAIL
 
@@ -421,7 +439,7 @@ const sendEmail = async (recipientId, email, cellphone, fromId, subject, body, w
   request.input('iCC', mssql.Int, 0);
   request.input('CC', mssql.NVarChar(mssql.MAX), ccListString); // Use the CC list string here
   request.input('FR', mssql.Int, fromId); // Use the from_id here
-  request.input('B', mssql.NVarChar(mssql.MAX), escape(body));
+  request.input('B', mssql.NVarChar(mssql.MAX), body);
   request.input('BSM', mssql.NVarChar(250), trimmedText);
   request.input('ThId', mssql.Int, 0);
   request.input('sRefID', mssql.NVarChar(9), refId);
@@ -735,7 +753,7 @@ app.post('/searchBothEmails/:userId', jwtMiddleware, async (req, res) => {
   }
 });
 
-//Time
+//Dashboard
 
 app.post('/getTimeReport/:userId', jwtMiddleware, async (req, res) => {
   const { userId } = req.params;
@@ -758,6 +776,113 @@ app.post('/getTimeReport/:userId', jwtMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+app.post('/getOpenItemsTasks/:userId', jwtMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  const { wd } = req.body;
+
+  try {
+    await connectToDatabase();
+    const request = new mssql.Request();
+
+    request.input('U', mssql.Int, userId);
+    request.input('W', mssql.Int, wd);
+
+    const result = await request.execute('GetOpenItems_Tasks');
+    console.log(result)
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching sub task:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/getDashboardDueTasks/:userId', jwtMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  const { wd } = req.body;
+
+  try {
+    await connectToDatabase();
+    const request = new mssql.Request();
+
+    request.input('UID', mssql.Int, userId);
+    request.input('W', mssql.Int, wd);
+
+    const result = await request.execute('GetDashboard_DueTasks');
+    console.log(result)
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching sub task:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/getDashboard_MyOngAndPlndWrk/:userId', jwtMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  const { wd } = req.body;
+
+  try {
+    await connectToDatabase();
+    const request = new mssql.Request();
+
+    request.input('UID', mssql.Int, userId);
+    request.input('WD', mssql.Int, wd);
+
+    const result = await request.execute('GetDashboard_MyOngAndPlndWrk');
+    console.log(result)
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching sub task:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/getToDoList/:userId', jwtMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  const { wd } = req.body;
+  console.log(wd)
+  try {
+    await connectToDatabase();
+    const request = new mssql.Request();
+
+    request.input('U', mssql.Int, userId);
+    request.input('W', mssql.Int, wd);
+
+    const result = await request.execute('GetToDoList');
+    console.log(result)
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching sub task:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/updateToDoList/:userId', jwtMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  const { wd, ID, I, InDe } = req.body;
+  console.log('here');
+  // Set ID to null if not provided
+  const taskId = ID === undefined ? null : ID;
+
+  try {
+    await connectToDatabase();
+    const request = new mssql.Request();
+
+    request.input('Id', mssql.Int, taskId);
+    request.input('U', mssql.Int, userId);
+    request.input('I', mssql.NVarChar(mssql.MAX), I);
+    request.input('InDe', mssql.Int, InDe);
+    request.input('W', mssql.Int, wd);
+
+    const result = await request.execute('InsUpDelToDo');
+    console.log(result);
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching sub task:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 
 
 // Websocket connection
