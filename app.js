@@ -425,83 +425,137 @@ function htmlToTextConverted(htmlContent) {
   return textContent;
 }
 
+const sendPushNotification = async (expoPushToken, senderName, subject) => {
+  try {
+    const message = {
+      to: expoPushToken,
+      sound: "default",
+      title: `📩 ${senderName} sent you an email`,
+      body: `Subject: ${subject}`,
+      data: { screen: "Imail" }, // Can be used for navigation
+    };
+
+    await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(message),
+    });
+
+    console.log("Push notification sent via Expo Push API!");
+  } catch (error) {
+    console.error("Error sending push notification:", error);
+  }
+};
+
+
+
 
 
 // Function to handle sending email/SMS
 const sendEmail = async (recipientId, email, cellphone, fromId, subject, body, wd, refId, ccListString, to_id) => {
-    // Convert HTML to text
-  const plainText = htmlToTextConverted(body);
-  const trimmedText = plainText.slice(0, 200);
-  const request = new mssql.Request();
-  request.input('TO', mssql.Int, recipientId || 0);
-  request.input('S', mssql.NVarChar(mssql.MAX), escape(subject));
-  request.input('At', mssql.NVarChar(10), '0');
-  request.input('iCC', mssql.Int, 0);
-  request.input('CC', mssql.NVarChar(mssql.MAX), ccListString); // Use the CC list string here
-  request.input('FR', mssql.Int, fromId); // Use the from_id here
-  request.input('B', mssql.NVarChar(mssql.MAX), body);
-  request.input('BSM', mssql.NVarChar(250), trimmedText);
-  request.input('ThId', mssql.Int, 0);
-  request.input('sRefID', mssql.NVarChar(9), refId);
+  try {
+      // Convert HTML to text
+    const plainText = htmlToTextConverted(body);
+    const trimmedText = plainText.slice(0, 200);
 
-  // Adjusting the 'EM' and 'SMS' inputs based on the presence of to_email and to_cellphone
-  if (email && cellphone) {
-    request.input('EM', mssql.Int, 1);
-    request.input('SMS', mssql.Int, 1);
-  } else if (email) {
-    request.input('EM', mssql.Int, 1);
-    request.input('SMS', mssql.Int, 0);
-  } else if (cellphone) {
-    request.input('EM', mssql.Int, 0);
-    request.input('SMS', mssql.Int, 1);
-  } else {
-    request.input('EM', mssql.Int, 0);
-    request.input('SMS', mssql.Int, 0);
-  }
+    const request = new mssql.Request();
+    request.input('TO', mssql.Int, recipientId || 0);
+    request.input('S', mssql.NVarChar(mssql.MAX), escape(subject));
+    request.input('At', mssql.NVarChar(10), '0');
+    request.input('iCC', mssql.Int, 0);
+    request.input('CC', mssql.NVarChar(mssql.MAX), ccListString); // Use the CC list string here
+    request.input('FR', mssql.Int, fromId); // Use the from_id here
+    request.input('B', mssql.NVarChar(mssql.MAX), body);
+    request.input('BSM', mssql.NVarChar(250), trimmedText);
+    request.input('ThId', mssql.Int, 0);
+    request.input('sRefID', mssql.NVarChar(9), refId);
 
-  request.input('A', mssql.NVarChar(mssql.MAX), '');
-  request.input('RqstEmlWhnRply', mssql.Int, 0);
-  request.input('RqstSMSWhnRply', mssql.Int, 0);
-  request.input('WD', mssql.Int, wd);
-  request.input('ToOriginal', mssql.Int, to_id);
-  request.input('GroupIDs', mssql.NVarChar(mssql.MAX), '');
+    // Adjusting the 'EM' and 'SMS' inputs based on the presence of to_email and to_cellphone
+    if (email && cellphone) {
+      request.input('EM', mssql.Int, 1);
+      request.input('SMS', mssql.Int, 1);
+    } else if (email) {
+      request.input('EM', mssql.Int, 1);
+      request.input('SMS', mssql.Int, 0);
+    } else if (cellphone) {
+      request.input('EM', mssql.Int, 0);
+      request.input('SMS', mssql.Int, 1);
+    } else {
+      request.input('EM', mssql.Int, 0);
+      request.input('SMS', mssql.Int, 0);
+    }
 
-  // Call the stored procedure to compose and save the email 
-  await request.execute('InsertMail');
+    request.input('A', mssql.NVarChar(mssql.MAX), '');
+    request.input('RqstEmlWhnRply', mssql.Int, 0);
+    request.input('RqstSMSWhnRply', mssql.Int, 0);
+    request.input('WD', mssql.Int, wd);
+    request.input('ToOriginal', mssql.Int, to_id);
+    request.input('GroupIDs', mssql.NVarChar(mssql.MAX), '');
 
-  if (cellphone && email) {
-    await transporter.sendMail({
-      from: 'anzee.donotreply1@anzeewd.com',
-      to: email,
-      subject: subject,
-      text: body,
-      html: `<b>${body}</b>`,
-    })
+    // Call the stored procedure to compose and save the email 
+    await request.execute('InsertMail');
 
-    client.messages
-      .create({
-        body: 'Mail Received please check Anzee',
-        from: '+1 925 261 7061',
-        to: cellphone
+    if (cellphone && email) {
+      await transporter.sendMail({
+        from: 'anzee.donotreply1@anzeewd.com',
+        to: email,
+        subject: subject,
+        text: body,
+        html: `<b>${body}</b>`,
       })
-      .then(message => console.log(message.sid));
-  } else if (email) {
-    // Send the email only if to_email is provided
-    await transporter.sendMail({
-      from: 'anzee.donotreply1@anzeewd.com',
-      to: email,
-      subject: subject,
-      text: body,
-      html: `<b>${body}</b>`,
-    });
-  } else if (cellphone) {
-    client.messages
-      .create({
-        body: 'Mail Received please check Anzee',
-        from: '+1 925 261 7061',
-        to: cellphone
-      })
-      .then(message => console.log(message.sid));
+
+      client.messages
+        .create({
+          body: 'Mail Received please check Anzee',
+          from: '+1 925 261 7061',
+          to: cellphone
+        })
+        .then(message => console.log(message.sid));
+    } else if (email) {
+      // Send the email only if to_email is provided
+      await transporter.sendMail({
+        from: 'anzee.donotreply1@anzeewd.com',
+        to: email,
+        subject: subject,
+        text: body,
+        html: `<b>${body}</b>`,
+      });
+    } else if (cellphone) {
+      client.messages
+        .create({
+          body: 'Mail Received please check Anzee',
+          from: '+1 925 261 7061',
+          to: cellphone
+        })
+        .then(message => console.log(message.sid));
+    }
+
+    // **🔥 Send Push Notification via FCM**
+
+    const namerequest = new mssql.Request();
+    namerequest.input("ID", mssql.Int, fromId);
+    const record = await namerequest.execute("GetNameMeeting");
+    const senderName = record.recordset[0]?.UserId || "Unknown Sender";
+
+
+    const userRequest = new mssql.Request();
+    userRequest.input('expotoken', mssql.VarChar(255), '');
+    userRequest.input('userID', mssql.Int, recipientId);
+    userRequest.input('action', mssql.Int, 2);
+
+    const userResult = await userRequest.execute('ManageUserToken');
+
+    const expoPushToken = userResult.recordset[0].expotoken;
+    
+    if (expoPushToken) {
+      await sendPushNotification(expoPushToken, senderName, subject);
+    }
+
+  } catch (error) {
+    console.error("Error sending email:", error);
   }
 };
 
@@ -883,6 +937,28 @@ app.post('/updateToDoList/:userId', jwtMiddleware, async (req, res) => {
   }
 });
 
+//Notifications
+
+app.post('/expoToken/:userId', jwtMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  const { expoPushToken, action } = req.body;
+
+  try {
+    await connectToDatabase();
+    const request = new mssql.Request();
+
+    request.input('expotoken', mssql.VarChar(255), expoPushToken);
+    request.input('userID', mssql.Int, userId);
+    request.input('action', mssql.Int, action);
+
+    const result = await request.execute('ManageUserToken');
+    console.log(result)
+    res.json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching sub task:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 
 // Websocket connection
