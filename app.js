@@ -139,6 +139,14 @@ app.post('/logout', async (req, res) => {
     request.input('BR', mssql.VarChar(mssql.MAX), '');
 
     await request.execute('UpdateOnline_Del');
+
+    const TokenRequest = new mssql.Request();
+    TokenRequest.input('expotoken', mssql.VarChar(255), '');
+    TokenRequest.input('userID', mssql.Int, userId);
+    TokenRequest.input('action', mssql.Int, 0);
+
+    const result = await TokenRequest.execute('ManageUserToken');
+
     return res.status(200).json({ message: 'Logout successful' });
   } catch (err) {
     console.error('Error during logout:', err);
@@ -952,7 +960,6 @@ app.post('/expoToken/:userId', jwtMiddleware, async (req, res) => {
     request.input('action', mssql.Int, action);
 
     const result = await request.execute('ManageUserToken');
-    console.log(result)
     res.json(result.recordset);
   } catch (err) {
     console.error('Error fetching sub task:', err);
