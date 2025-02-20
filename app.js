@@ -72,7 +72,7 @@ const jwtMiddleware = (req, res, next) => {
 //USER 
 
 app.post('/login', async (req, res) => {
-  const { usernameOrEmail, password, wd, org, EN } = req.body;
+  const { usernameOrEmail, password, wd, org, EN, expoPushToken } = req.body;
   try {
     await connectToDatabase();
     const request = new mssql.Request();
@@ -112,12 +112,19 @@ app.post('/login', async (req, res) => {
       getUsersRequest.input('sEN', mssql.NVarChar(255), EN);
       const usersResult = await getUsersRequest.execute('GetUsers');
 
+      const tokenRequest = new mssql.Request();
+      tokenRequest.input('expotoken', mssql.VarChar(255), expoPushToken);
+      tokenRequest.input('userID', mssql.Int, userRecord[0][["UserIdN"]]);
+      tokenRequest.input('action', mssql.Int, 1);
+  
+      await request.execute('ManageUserToken');
+
       const users = usersResult.recordset;
       // Generate a token upon successful login
       const token = jwt.sign({ usernameOrEmail }, process.env.JWT_SECRET, {
         expiresIn: '24h', // Set the expiration time as needed
       });
-
+      console.log('Login Success')
       // Return the user record and token in the response
       return res.status(200).json({ user: userRecord, token, users });
     } else {
