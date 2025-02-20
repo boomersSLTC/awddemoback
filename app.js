@@ -117,7 +117,7 @@ app.post('/login', async (req, res) => {
       tokenRequest.input('userID', mssql.Int, userRecord[0][["UserIdN"]]);
       tokenRequest.input('action', mssql.Int, 1);
   
-      await request.execute('ManageUserToken');
+      await tokenRequest.execute('ManageUserToken');
 
       const users = usersResult.recordset;
       // Generate a token upon successful login
